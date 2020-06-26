@@ -1,0 +1,620 @@
+﻿Ингредиент
+using System.Collections.Generic;
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "New Ingredient", menuName = "Ingredient", order = 51)]
+public class Ingredient : ScriptableObject
+{
+    [SerializeField] public List<string> AddEffects = new List<string>();
+    [SerializeField] public List<string> RemoveEffects = new List<string>();
+    [SerializeField] public Sprite MySprite = null;
+}
+Назад в меню
+using UnityEngine;
+
+public class BackToMenu : MonoBehaviour
+{
+    [SerializeField] AudioSource ButtonSound;
+
+    public void BackToMenuFunction()
+    {
+        ButtonSound.Play();
+        Invoke("LoadNewLevel", 0.3f);
+    }
+
+    private void LoadNewLevel()
+    {
+        UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(0);
+    }
+}
+Меню
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+
+public class Menu : MonoBehaviour
+{
+    [SerializeField] GameObject MainMenu;
+    [SerializeField] GameObject Settings;
+    [SerializeField] GameObject Credits;
+    [SerializeField] AudioSource ButtonSound;
+    [SerializeField] Text SoundOnOff;
+
+    Camera MainCamera;
+
+    private bool SoundIsOn = true;
+
+    private void Awake()
+    {
+        MainCamera = FindObjectOfType<Camera>();
+    }
+
+    public void StartGame()
+    {
+        ButtonSoundPlay();
+        Invoke("LoadActiveLevel", 0.3f);
+    }
+
+    private void LoadActiveLevel()
+    {
+        SceneManager.LoadSceneAsync(1);
+    }
+
+    public void EnableMainMenu()
+    {
+        ButtonSoundPlay();
+
+        MainMenu.SetActive(true);
+        Settings.SetActive(false);
+        Credits.SetActive(false);
+    }
+
+    public void EnableSettings()
+    {
+        ButtonSoundPlay();
+
+        MainMenu.SetActive(false);
+        Settings.SetActive(true);
+        Credits.SetActive(false);
+    }
+
+    public void EnableCredits()
+    {
+        ButtonSoundPlay();
+
+        MainMenu.SetActive(false);
+        Settings.SetActive(false);
+        Credits.SetActive(true);
+    }
+
+    public void TurnOnOffSound()
+    {
+        if(Music.MusicVolume == 1)
+        {
+            SoundOnOff.text = "Off";
+            Music.MusicVolume = 0;
+            Music.Instance.GetComponent<AudioSource>().volume = 0;
+        }
+        else
+        {
+            SoundOnOff.text = "On";
+            Music.Instance.GetComponent<AudioSource>().volume = 100;
+            Music.MusicVolume = 1;
+        }
+    }
+
+    private void ButtonSoundPlay()
+    {
+        ButtonSound.Play();
+    }
+}
+
+
+
+Музыка
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public class Music : MonoBehaviour
+{
+    public static Music Instance { get; set; }
+
+    [SerializeField] List<AudioClip> BackgroundMusicClips;
+
+    AudioSource BackgroundMusic;
+
+    public static bool SoundOn = true;
+    public bool isPausedByWinSound = false;
+    public static int MusicVolume = 1;
+    int sceneCount = 0;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+        }
+        else
+        {
+            Instance = this;
+        }
+    }
+
+    private void Start()
+    {
+        BackgroundMusic = GetComponent<AudioSource>();
+        sceneCount = SceneManager.sceneCountInBuildSettings;
+
+        if (SceneManager.GetActiveScene().buildIndex == 0)
+        {
+            BackgroundMusic.clip = BackgroundMusicClips[0];
+            BackgroundMusic.Play();
+        }
+        else if(SceneManager.GetActiveScene().buildIndex == sceneCount - 1)
+        {
+            BackgroundMusic.clip = BackgroundMusicClips[1];
+            BackgroundMusic.Play();
+        }
+        else
+        {
+            UpdateMusic();
+        }
+
+        if(MusicVolume == 1)
+        {
+            GetComponent<AudioSource>().volume = 100;
+        }
+        else
+        {
+            GetComponent<AudioSource>().volume = 0;
+        }
+    }        
+
+    private void UpdateMusic()
+    {
+        BackgroundMusic.clip = BackgroundMusicClips[Random.Range(2, BackgroundMusicClips.Count - 1)];
+        BackgroundMusic.Play();
+    }
+
+    public void StopBackgroundMusic()
+    {
+        BackgroundMusic.Stop();
+    }
+}
+Игра
+using UnityEngine;
+
+public class Game : MonoBehaviour
+{
+    public static Game Instance { get; set; }
+
+    [SerializeField] AudioSource ButtonSound;
+    [SerializeField] AudioSource WinSound;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+        }
+        else
+        {
+            Instance = this;
+        }
+    }
+
+    public void PlayButtonSound()
+    {
+        ButtonSound.Play();
+    }
+
+    public void PlayWinSound()
+    {
+        WinSound.Play();
+    }
+}
+Система смешивания
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.SceneManagement;
+
+public class MixSystem : MonoBehaviour
+{
+    public static MixSystem Instance { get; set; }
+
+    [SerializeField] Button LeftIngredient;
+    [SerializeField] Button MiddleIngredient;
+    [SerializeField] Button RightIngredient;
+    [SerializeField] Text Requirements;
+    [SerializeField] Text EffectsSummary;
+    [SerializeField] Ingredient Null;
+    [SerializeField] List<string> RequirementsList;
+
+    List<string> MixSystemEffectsSummaryList = new List<string>();
+    List<string> MixSystemEffectsSummaryBackupList = new List<string>();
+    List<string> RequirementsBackupList = new List<string>();
+    public List<Ingredient> MixSystemList = new List<Ingredient>();
+
+    bool gameEnded = false;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+        }
+        else
+        {
+            Instance = this;
+        }
+    }
+
+    private void Start()
+    {
+        foreach(string requiredEffect in RequirementsList)
+        {
+            Requirements.text += requiredEffect + Environment.NewLine;
+        }
+
+        UpdateMixSystem();
+    }
+
+    private void FixedUpdate()
+    {
+        
+            if (gameEnded)
+            {
+                Invoke("LoadNewSceneWithDelay", 0f);
+            }
+        
+    }
+
+    public void AddIngredientToMixSystem(Ingredient ingredient)
+    {
+        if(MixSystemList[0] == Null)
+        {
+            MixSystemList[0] = ingredient;
+        }
+        else if (MixSystemList[1] == Null)
+        {
+            MixSystemList[1] = ingredient;
+        }
+        else if (MixSystemList[2] == Null)
+        {
+            MixSystemList[2] = ingredient;
+        }
+        UpdateMixSystem();
+    }
+
+    public void RemoveLeftIngredient()
+    {
+        PlayButtonSound();
+        Inventory.Instance.AddIngredientToInventory(MixSystemList[0]);
+        MixSystemList[0] = Null;
+        UpdateMixSystem();
+    }
+
+    public void RemoveMiddleIngredient()
+    {
+        PlayButtonSound();
+        Inventory.Instance.AddIngredientToInventory(MixSystemList[1]);
+        MixSystemList[1] = Null;
+        UpdateMixSystem();
+    }
+
+    public void RemoveRightIngredient()
+    {
+        PlayButtonSound();
+        Inventory.Instance.AddIngredientToInventory(MixSystemList[2]);
+        MixSystemList[2] = Null;
+        UpdateMixSystem();
+    }
+
+    private void UpdateMixSystem()
+    {
+        EffectsSummary.text = "";
+        
+        UpdateImages();
+        UpdateEffectsList();
+        UpdateNames();
+
+        foreach (string effect in MixSystemEffectsSummaryList)
+        {
+            EffectsSummary.text += effect + Environment.NewLine;
+        }
+    }
+
+    private void UpdateImages()
+    {
+        if (MixSystemList[0] == Null)
+        {
+            LeftIngredient.gameObject.SetActive(false);
+        }
+        else
+        {
+            LeftIngredient.gameObject.SetActive(true);
+            LeftIngredient.GetComponent<Image>().sprite = MixSystemList[0].MySprite;
+        }
+
+        if (MixSystemList[1] == Null)
+        {
+            MiddleIngredient.gameObject.SetActive(false);
+        }
+        else
+        {
+            MiddleIngredient.gameObject.SetActive(true);
+            MiddleIngredient.GetComponent<Image>().sprite = MixSystemList[1].MySprite;
+        }
+
+        if (MixSystemList[2] == Null)
+        {
+            RightIngredient.gameObject.SetActive(false);
+        }
+        else
+        {
+            RightIngredient.gameObject.SetActive(true);
+            RightIngredient.GetComponent<Image>().sprite = MixSystemList[2].MySprite;
+        }
+    }
+
+    private void UpdateNames()
+    {
+        LeftIngredient.GetComponentInChildren<Text>().text = MixSystemList[0].name;
+        MiddleIngredient.GetComponentInChildren<Text>().text = MixSystemList[1].name;
+        RightIngredient.GetComponentInChildren<Text>().text = MixSystemList[2].name;
+    }
+
+    private void UpdateEffectsList()
+    {
+        MixSystemEffectsSummaryList.Clear();
+
+        FillEffectsListListWithAddEffects();
+        FillEffectsListListWithRemoveEffects();
+    }   
+
+    private void FillEffectsListListWithAddEffects()
+    {
+        foreach (string addEffect in MixSystemList[0].AddEffects)
+        {
+            MixSystemEffectsSummaryList.Add(addEffect);
+        }
+        foreach (string addEffect in MixSystemList[1].AddEffects)
+        {
+            MixSystemEffectsSummaryList.Add(addEffect);
+        }
+        foreach (string addEffect in MixSystemList[2].AddEffects)
+        {
+            MixSystemEffectsSummaryList.Add(addEffect);
+        }
+    }
+
+    private void FillEffectsListListWithRemoveEffects()
+    {
+        foreach (string removeEffect in MixSystemList[0].RemoveEffects)
+        {
+            MixSystemEffectsSummaryList.Remove(removeEffect);
+        }
+        foreach (string removeEffect in MixSystemList[1].RemoveEffects)
+        {
+            MixSystemEffectsSummaryList.Remove(removeEffect);
+        }
+        foreach (string removeEffect in MixSystemList[2].RemoveEffects)
+        {
+            MixSystemEffectsSummaryList.Remove(removeEffect);
+        }
+    }
+
+    public void WinConditionChecker()
+    {
+        ClearListsAndMakeBackup();
+
+        foreach (string effect in MixSystemEffectsSummaryList)
+        {
+            if(RequirementsList.Contains(effect))
+            {
+                MixSystemEffectsSummaryBackupList.Remove(effect);
+                RequirementsBackupList.Remove(effect);
+            }
+        }
+
+        if(RequirementsBackupList.Count == 0 && MixSystemEffectsSummaryBackupList.Count == 0)
+        {
+            Music.Instance.StopBackgroundMusic();
+            Music.Instance.isPausedByWinSound = true;
+            PlayWinSound();
+
+            if (SceneManager.GetActiveScene().buildIndex % 3 == 0)
+            {
+                Invoke("ShowAds", 2f);
+            }
+            else
+            {
+                Invoke("LoadNewSceneWithDelay", 2f);
+            }            
+        }
+    }
+
+    private void ShowAds()
+    {
+        gameEnded = true;            
+    }
+
+    private void LoadNewSceneWithDelay()
+    {
+        SceneManager.LoadSceneAsync(SceneManager.GetActiveScene().buildIndex + 1);
+    }
+
+    private void ClearListsAndMakeBackup()
+    {
+        MixSystemEffectsSummaryBackupList.Clear();
+        RequirementsBackupList.Clear();
+
+        foreach (string effect in MixSystemEffectsSummaryList)
+        {
+            MixSystemEffectsSummaryBackupList.Add(effect);
+        }
+
+        foreach (string effect in RequirementsList)
+        {
+            RequirementsBackupList.Add(effect);
+        }
+    }    
+
+    private void PlayButtonSound()
+    {
+        Game.Instance.PlayButtonSound();
+    }
+    private void PlayWinSound()
+    {
+        Game.Instance.PlayWinSound();
+    }
+}
+Инвентарь
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class Inventory : MonoBehaviour
+{
+    public static Inventory Instance { get;set; }
+
+    [SerializeField] List<Ingredient> InventoryList;
+    [SerializeField] Button LeftIngredient;
+    [SerializeField] Button MiddleIngredient;
+    [SerializeField] Button RightIngredient;
+    [SerializeField] Text ActiveIngredientAddEffects;
+    [SerializeField] Text ActiveIngredientRemoveEffects;
+    [SerializeField] Ingredient Null;
+
+    private int InventoryActiveIngredient = 2;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+        }
+        else
+        {
+            Instance = this;
+        }
+    }
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        UpdateInventory();
+    }
+
+    public void AddIngredient()
+    {
+        PlayButtonSound();
+        if (MixSystem.Instance.MixSystemList.Contains(Null))
+        {
+            AddIngredientToMixSystem();
+            RemoveIngredientFromInventory();
+            UpdateInventory();
+        }
+        else
+        {
+            return;
+        }
+    }
+
+    private void RemoveIngredientFromInventory()
+    {
+        if(InventoryActiveIngredient!= InventoryList.Count-2)
+        {
+            InventoryList.Remove(InventoryList[InventoryActiveIngredient]);
+        }
+        else
+        {
+            InventoryList.Remove(InventoryList[InventoryActiveIngredient]);
+            InventoryActiveIngredient -= 1;
+        }
+    }
+
+    private void AddIngredientToMixSystem()
+    {
+        MixSystem.Instance.AddIngredientToMixSystem(InventoryList[InventoryActiveIngredient]);
+    }
+
+    public void AddIngredientToInventory(Ingredient ingredient)
+    {
+        InventoryList.Add(ingredient);
+        InventoryList[InventoryList.Count - 2] = ingredient;
+        InventoryList[InventoryList.Count - 1] = Null;        
+        UpdateInventory();
+    }
+
+    public void PreviousIngredient()
+    {
+        PlayButtonSound();
+        InventoryActiveIngredient -= 1;
+        UpdateInventory();
+    }
+
+    public void NextIngredient()
+    {
+        PlayButtonSound();
+        InventoryActiveIngredient += 1;
+        UpdateInventory();
+    }
+
+    private void UpdateInventory()
+    {        
+        UpdateIngredients();
+        UpdateEffects();
+    }
+
+    private void UpdateIngredients()
+    {
+        if (InventoryList[InventoryActiveIngredient - 1] == Null)
+        {
+            LeftIngredient.gameObject.SetActive(false);
+        }
+        else
+        {
+            LeftIngredient.gameObject.SetActive(true);
+            LeftIngredient.GetComponentInChildren<Text>().text = InventoryList[InventoryActiveIngredient - 1].name;
+            LeftIngredient.GetComponent<Image>().sprite = InventoryList[InventoryActiveIngredient - 1].MySprite;
+        }
+
+        MiddleIngredient.GetComponent<Image>().sprite = InventoryList[InventoryActiveIngredient].MySprite;
+        MiddleIngredient.GetComponentInChildren<Text>().text = InventoryList[InventoryActiveIngredient].name;
+
+        if (InventoryList[InventoryActiveIngredient + 1] == Null)
+        {
+            RightIngredient.gameObject.SetActive(false);
+        }
+        else
+        {
+            RightIngredient.gameObject.SetActive(true);
+            RightIngredient.GetComponentInChildren<Text>().text = InventoryList[InventoryActiveIngredient + 1].name;
+            RightIngredient.GetComponent<Image>().sprite = InventoryList[InventoryActiveIngredient + 1].MySprite;
+        }
+    }
+
+    private void UpdateEffects()
+    {
+        ActiveIngredientAddEffects.text = "";
+        ActiveIngredientRemoveEffects.text = "";
+        foreach (string AddEffect in InventoryList[InventoryActiveIngredient].AddEffects)
+        {
+            ActiveIngredientAddEffects.text += AddEffect + Environment.NewLine;
+        }
+        foreach (string RemoveEffect in InventoryList[InventoryActiveIngredient].RemoveEffects)
+        {
+            ActiveIngredientRemoveEffects.text += RemoveEffect + Environment.NewLine;
+        }
+    }
+
+    private void PlayButtonSound()
+    {
+        Game.Instance.PlayButtonSound();
+    }
+}
